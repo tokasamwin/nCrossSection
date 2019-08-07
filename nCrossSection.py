@@ -35,29 +35,49 @@ class nuclear_directory(object):
 	def __init__(self,path):
 		'''
 		Data object to store file index for nuclear data
-		Default data types are endf and ace
+		Default data types are endf
 		'''
 		self.path=path
 		self.list=os.listdir(path)
+		count=len(list(filter(lambda i: self.list[0] in i,self.list)))
+		if '.' in self.list[0]:
+			self.format=self.list[0].split('.')[-1] #captures hdf5 and endf
+		else:
+			self.format='ace'
 		self.describe()
 		self.get_data=lambda ID:self.index[ID]
 	
 	def describe(self):
 		self.index={}
 		for i in self.list:
-			var=i.split('.')[0].replace('n-','')
-			Z,s,A=var.split('_')
-			try:
-				Z,A=int(Z),int(A)
-				A=int(A)
-				m=0
-				self.index[(Z,A)]=os.path.join(self.path,i)
-				self.index['{}{}'.format(s,A)]=self.index[(Z,A)]
-			except:
-				Z=int(Z)
-				A,m=[int(i) for i in A.split('m')]
-				self.index[(Z,A,m)]=os.path.join(self.path,i)
-				self.index['{}{}_{}'.format(s,A,m)]=self.index[(Z,A,m)]
+			getattr(self,self.format)(i)
+	
+	def endf(self,i):
+		var=i.split('.')[0].replace('n-','')
+		Z,s,A=var.split('_')
+		try:
+			Z,A=int(Z),int(A)
+			A=int(A)
+			m=0
+			self.index[(Z,A)]=os.path.join(self.path,i)
+			self.index['{}{}'.format(s,A)]=self.index[(Z,A)]
+		except:
+			Z=int(Z)
+			A,m=[int(i) for i in A.split('m')]
+			self.index[(Z,A,m)]=os.path.join(self.path,i)
+			self.index['{}{}_{}'.format(s,A,m)]=self.index[(Z,A,m)]
+
+	def ace(self,i,post=''):
+		if '.' in i: return
+		Z=int(i[:2])
+		s=i[2:4].replace('_','')
+		A=int(i[-3:])
+		self.index[(Z,A)]=os.path.join(self.path,i+post)
+		self.index['{}{}'.format(s,A)]=self.index[(Z,A)]
+		
+	def hdf5(self,i):
+		name=i.split('.')[0]
+		self.ace(name,post='.hdf5')
 
 class isotope(object):
 	def __init__(self,Z,A,m=None):
@@ -72,24 +92,45 @@ class isotope(object):
 			
 	def read(self):
 		#finding cross sections available
-		self.data=NEUTRON.from_endf(data.index[self.id])
+		self.data=getattr(NEUTRON,'from_'+data.format)(data.index[self.id])
+		#self.data=NEUTRON.from_endf(data.index[self.id])
 		self.XStype=self.data.reactions.keys()
 		self.notloaded=False
 	
-	def XSplot(self,MT=1):
+	def XSplot(self,*MT,**kwargss):
+		pyplot_objs=[]
+		if 'fig' in kwargs:
+			f=kwargs.get('fig')
+			pyplot_objs.append(f)
+			if len(f.axes):
+				ax=f.axes[0]
+			else:
+				ax=f.subplots()
+			pyplot_objs.append(ax)
+		elif 'ax' in kwargs:
+			ax=kwargs.get('ax')
+			pyplot_objs.append(ax)
+		else:
+			f=plt.figure()
+			ax=f.subplots()
+			pyplot_objs+=[f,ax]
 		if self.notloaded:
 			self.read()
-		try:
-			if type(MT) is list:
-				for i in MT:
-					plt.loglog(self.E[i],self.XSdata[i],label='{},{}:{}'.format(self.Z,self.A,i))
-			else:
-				plt.loglog(self.E[MT],self.XSdata[MT],label='{},{}:{}'.format(self.Z,self.A,MT))
-		except:
-			...
-		plt.xlabel('Energy ($eV$)')
-		plt.ylabel('Microscopic cross section (barn or $b$)')
-		plt.legend(loc='best')
+		for i in MT:
+			try:
+				ax.loglog(self.E[i],self.XSdata[i],label='{},{}:{}'.format(self.Z,self.A,i))
+			except:
+				...
+		if not len(ax.get_xlabel()):
+			ax.xlabel('Energy ($eV$)')
+			ax.ylabel('Microscopic cross section (barn or $b$)')
+			ax.legend(loc='best')
+		for kw in kwargs:
+			for obj in pyplot_objs:
+				if hasattr(obj,kw):
+					getattr(obj,kw)(kwargs[kw])
+				elif hasattr(obj,'set_'+kw):
+					getattr(obj,kw)(kwargs[kw])
 	
 	def XSfind(self,E,MT=1):
 		if self.notloaded:
