@@ -16,11 +16,11 @@ def set_path(path):
 	'''
 	Sets a path variable within the current installation, should be per-user
 	'''
-	with open(os.path.join(ncspath,'path'),'w+') as f:
+	with open(os.path.join(ncspath,'user.path'),'w+') as f:
 		f.write(path)
 
 def read_path():
-	with open(os.path.join(ncspath,'path')) as f:
+	with open(os.path.join(ncspath,'user.path')) as f:
 		neutronicspath=f.read().strip()
 	return neutronicspath
 
