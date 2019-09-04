@@ -24,13 +24,6 @@ def read_path():
 		neutronicspath=f.read().strip()
 	return neutronicspath
 
-try:
-	neutronicspath=read_path()
-	data=nuclear_directory(neutronicspath)
-except:
-	rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
-	print(rtext)
-
 class nuclear_directory(object):
 	def __init__(self,path):
 		'''
@@ -79,6 +72,15 @@ class nuclear_directory(object):
 		name=i.split('.')[0]
 		self.ace(name,post='.hdf5')
 
+try:
+	neutronicspath=read_path()
+	data=nuclear_directory(neutronicspath)
+except:
+	rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
+	print(rtext)
+	print(neutronicspath)
+	print(nuclear_data(neutronicspath))
+
 class isotope(object):
 	def __init__(self,Z,A,m=None):
 		self.Z=Z
@@ -93,7 +95,6 @@ class isotope(object):
 	def read(self):
 		#finding cross sections available
 		self.data=getattr(NEUTRON,'from_'+data.format)(data.index[self.id])
-		#self.data=NEUTRON.from_endf(data.index[self.id])
 		self.XStype=self.data.reactions.keys()
 		self.notloaded=False
 	
@@ -370,6 +371,9 @@ class mixture:
 					getattr(obj,kw)(kwargs[kw])
 
 def join(*args):
+	'''
+	Generic tool for joining non-empty entries into strings
+	'''
 	args=tuple(filter(lambda i:i!=None,args))
 	if type(args[0]) is str:
 		return ''.join([str(arg) for arg in args])
