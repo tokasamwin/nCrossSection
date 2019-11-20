@@ -1,10 +1,13 @@
 #from nova import ENDF6
 import numpy as np, os, sys, matplotlib.pyplot as plt, mendeleev
 from math import isnan, isinf
-from openmc.data import IncidentNeutron as NEUTRON
-
 amu=1.660539040e-27 # atomic mass unit, used to find number densities
-load=False
+load=True
+if load:
+	try:
+		from openmc.data import IncidentNeutron as NEUTRON
+	except:
+		print('Cannot load OpenMC, cannot read cross section data')
 
 for p in sys.path:
 	potential=os.path.join(p,'nCrossSection')
@@ -72,14 +75,15 @@ class nuclear_directory(object):
 		name=i.split('.')[0]
 		self.ace(name,post='.hdf5')
 
-try:
-	neutronicspath=read_path()
-	data=nuclear_directory(neutronicspath)
-except:
-	rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
-	print(rtext)
-	print(neutronicspath)
-	print(nuclear_data(neutronicspath))
+if load:
+	try:
+		neutronicspath=read_path()
+		data=nuclear_directory(neutronicspath)
+	except:
+		rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
+		print(rtext)
+		print(neutronicspath)
+		print(nuclear_directory(neutronicspath))
 
 class isotope(object):
 	def __init__(self,Z,A,m=None):
