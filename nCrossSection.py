@@ -1,10 +1,15 @@
 #from nova import ENDF6
 import numpy as np, os, sys, matplotlib.pyplot as plt, mendeleev
 from math import isnan, isinf
-from openmc.data import IncidentNeutron as NEUTRON
+
 
 amu=1.660539040e-27 # atomic mass unit, used to find number densities
 load=False
+try:
+	from openmc.data import IncidentNeutron as NEUTRON
+except:
+	load=False
+	print('openMC not installed, load feature disabled')
 
 for p in sys.path:
 	potential=os.path.join(p,'nCrossSection')
@@ -77,9 +82,7 @@ try:
 	data=nuclear_directory(neutronicspath)
 except:
 	rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
-	print(rtext)
-	print(neutronicspath)
-	print(nuclear_data(neutronicspath))
+
 
 class isotope(object):
 	def __init__(self,Z,A,m=None):
@@ -175,11 +178,11 @@ class element:
 		self.iso={}
 		self.comp={}
 		for i,x in zip(A,comp):
-			if (Z,i) in data.index:
-				self.iso[(Z,i)]=isotope(Z,i)
-				self.comp[(Z,i)]=x
-				self.avm+=self.iso[(Z,i)].m*self.comp[(Z,i)]
-				if load:
+			self.iso[(Z,i)]=isotope(Z,i)
+			self.comp[(Z,i)]=x
+			self.avm+=self.iso[(Z,i)].m*self.comp[(Z,i)]
+			if load:
+				if (Z,i) in data.index:
 					for MT in self.iso[(Z,i)].XStype:
 						if MT not in self.dataav:
 							self.dataav.append(MT)
@@ -192,7 +195,7 @@ class compound:
 			try:
 				self.defaultinit(rho,*e_data)
 			except:
-				raise AttributeError('Need input of elements, composition array and density of compound, or a mixture!')
+				raise AttributeError('Need input of density and elements, or a mixture!')
 		elif importconds:
 			self.importfrommix(mix)
 		else:
@@ -232,6 +235,7 @@ class compound:
 					self.isocomp[iso]=c*e.comp[iso]
 		totalcomp=sum(self.isocomp.values())
 		self.isofrac={}
+		print(self.isocomp)
 		for iso in self.isocomp:
 			self.isofrac[iso]=self.isocomp[iso]/totalcomp
 		fracsum=0
