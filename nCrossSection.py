@@ -2,90 +2,11 @@
 import numpy as np, os, sys, matplotlib.pyplot as plt, mendeleev
 from math import isnan, isinf
 
+import nCrossSection.loaddata as ld
 
 amu=1.660539040e-27 # atomic mass unit, used to find number densities
 load=False
-try:
-	from openmc.data import IncidentNeutron as NEUTRON
-except:
-	load=False
-	print('openMC not installed, load feature disabled')
 
-for p in sys.path:
-	potential=os.path.join(p,'nCrossSection')
-	if os.path.exists(potential):
-		ncspath=potential
-		break
-
-def set_path(path):
-	'''
-	Sets a path variable within the current installation, should be per-user
-	'''
-	with open(os.path.join(ncspath,'user.path'),'w+') as f:
-		f.write(path)
-
-def read_path():
-	with open(os.path.join(ncspath,'user.path')) as f:
-		neutronicspath=f.read().strip()
-	return neutronicspath
-
-class nuclear_directory(object):
-	def __init__(self,path):
-		'''
-		Data object to store file index for nuclear data
-		Default data types are endf
-		'''
-		self.path=path
-		self.list=os.listdir(path)
-		count=len(list(filter(lambda i: self.list[0] in i,self.list)))
-		if '.' in self.list[0]:
-			self.format=self.list[0].split('.')[-1] #captures hdf5 and endf
-		else:
-			self.format='ace'
-		self.describe()
-		self.get_data=lambda ID:self.index[ID]
-	
-	def describe(self):
-		self.index={}
-		for i in self.list:
-			getattr(self,self.format)(i)
-	
-	def endf(self,i):
-		var=i.split('.')[0].replace('n-','')
-		Z,s,A=var.split('_')
-		try:
-			Z,A=int(Z),int(A)
-			A=int(A)
-			m=0
-			self.index[(Z,A)]=os.path.join(self.path,i)
-			self.index['{}{}'.format(s,A)]=self.index[(Z,A)]
-		except:
-			Z=int(Z)
-			A,m=[int(i) for i in A.split('m')]
-			self.index[(Z,A,m)]=os.path.join(self.path,i)
-			self.index['{}{}_{}'.format(s,A,m)]=self.index[(Z,A,m)]
-
-	def ace(self,i,post=''):
-		if '.' in i: return
-		Z=int(i[:2])
-		s=i[2:4].replace('_','')
-		A=int(i[-3:])
-		self.index[(Z,A)]=os.path.join(self.path,i+post)
-		self.index['{}{}'.format(s,A)]=self.index[(Z,A)]
-		
-	def hdf5(self,i):
-		name=i.split('.')[0]
-		self.ace(name,post='.hdf5')
-
-if load:
-	try:
-		neutronicspath=read_path()
-		data=nuclear_directory(neutronicspath)
-	except:
-		rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
-		print(rtext)
-		print(neutronicspath)
-		print(nuclear_directory(neutronicspath))
 
 class isotope(object):
 	def __init__(self,Z,A,m=None):
@@ -100,11 +21,14 @@ class isotope(object):
 			
 	def read(self):
 		#finding cross sections available
-		self.data=getattr(NEUTRON,'from_'+data.format)(data.index[self.id])
-		self.XStype=self.data.reactions.keys()
+		if self.notloaded: self.data=ld.get_data(self.id)
+		self.XSfind=self.data.read
+		self.XStype=self.data.XStype
+		#self.data=getattr(NEUTRON,'from_'+data.format)(data.index[self.id])
+		#self.XStype=self.data.reactions.keys()
 		self.notloaded=False
 	
-	def XSplot(self,*MT,**kwargss):
+	def XSplot(self,*MT,**kwargs):
 		pyplot_objs=[]
 		if 'fig' in kwargs:
 			f=kwargs.get('fig')
@@ -138,12 +62,6 @@ class isotope(object):
 					getattr(obj,kw)(kwargs[kw])
 				elif hasattr(obj,'set_'+kw):
 					getattr(obj,kw)(kwargs[kw])
-	
-	def XSfind(self,E,MT=1):
-		if self.notloaded:
-			self.read()
-		T=list(self.data[MT].xs.keys())[0]
-		return self.data[MT].xs[T](E)
 	
 class element:
 	def __init__(self,Z,*A_data):
@@ -185,11 +103,14 @@ class element:
 			self.comp[(Z,i)]=x
 			self.avm+=self.iso[(Z,i)].m*self.comp[(Z,i)]
 			if load:
-				if (Z,i) in data.index:
+				if (Z,i) in ld.data.index:
 					for MT in self.iso[(Z,i)].XStype:
 						if MT not in self.dataav:
 							self.dataav.append(MT)
 		self.dataav.sort()
+	
+	def XSfind(self,E,MT=1):
+		return sum([self.iso[i].XSfind(E,MT=MT) * self.comp[i] for i in self.iso])
 
 class compound:
 	def __init__(self,rho,*e_data,mix=None):
