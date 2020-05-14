@@ -5,7 +5,7 @@ try:
 except:
 	mc=False
 	print('openMC not installed, falling back to pyENDF6')
-import pyENDF6.ENDF6 as endf
+import ENDF6 as endf
 
 import os, sys, numpy as np, matplotlib.pyplot as plt
 from scipy.interpolate import interp1d as interp
@@ -97,7 +97,8 @@ class mcdata(object):
 		return self.data[MT].xs[T](E)
 
 class endfdata(object):
-	def __init__(self,ID):
+	def __init__(self,ID,debug=False):
+		self.debug=debug
 		with open(data.index[ID]) as f:
 			self.lines=f.readlines()
 		content=endf.list_content(self.lines)

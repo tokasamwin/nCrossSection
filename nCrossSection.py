@@ -7,7 +7,6 @@ import nCrossSection.loaddata as ld
 amu=1.660539040e-27 # atomic mass unit, used to find number densities
 load=False
 
-
 class isotope(object):
 	def __init__(self,Z,A,m=None):
 		self.Z=Z
