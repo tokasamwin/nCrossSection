@@ -7,8 +7,8 @@ except:
 	print('openMC not installed, falling back to pyENDF6')
 import pyENDF6.ENDF6 as endf
 
-import os, sys, numpy as np
-
+import os, sys, numpy as np, matplotlib.pyplot as plt
+from scipy.interpolate import interp1d as interp
 for p in sys.path:
 	potential=os.path.join(p,'nCrossSection')
 	if os.path.exists(potential):
@@ -75,15 +75,15 @@ class nuclear_directory(object):
 		name=i.split('.')[0]
 		self.ace(name,post='.hdf5')
 
-if load:
-	try:
-		neutronicspath=read_path()
-		data=nuclear_directory(neutronicspath)
-	except:
-		rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
-		print(rtext)
-		print(neutronicspath)
-		print(nuclear_directory(neutronicspath))
+
+try:
+	neutronicspath=read_path()
+	data=nuclear_directory(neutronicspath)
+except:
+	rtext='Warning: Data unavailable\nSet a path to a neutronics data file'
+	print(rtext)
+	print(neutronicspath)
+	print(nuclear_directory(neutronicspath))
 
 
 class mcdata(object):
@@ -107,9 +107,19 @@ class endfdata(object):
 	def gen_arrays(self):
 		self.rawdata={}
 		self.data={}
+		Edebug=10**np.linspace(-3,0)
+		f=plt.figure()
+		ax=f.subplots(2)
 		for xs in self.XStype:
 			self.rawdata[xs]=endf.read_table(endf.find_section(self.lines,MF=3,MT=xs))
-			self.data[xs] = lambda E: np.interp(E,*self.rawdata[xs]) # construct linear interpreter functions for each cross section
+			self.data[xs] = interp(*self.rawdata[xs],kind='linear',bounds_error=0,fill_value=0) # construct linear interpreter functions for each cross section
+			if self.debug:
+				ax[0].plot(*self.rawdata[xs])
+				ax[0].set_xlim([0,1])
+				ax[0].set_ylim([0,2.5])
+				ax[1].plot(Edebug,self.data[xs](Edebug))
+				ax[1].set_xlim([0,1])
+				ax[1].set_ylim([0,2.5])
 			#this step currently doesn't work, don't know how to make it work
 			#seems to be an error in how the lambda functions are set up
 	
