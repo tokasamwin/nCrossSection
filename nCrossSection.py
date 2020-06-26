@@ -4,9 +4,9 @@ from math import isnan, isinf
 
 import nCrossSection.loaddata as ld
 
-amu=1.660539040e-27 # atomic mass unit, used to find number densities
+amu=1.660538782-27 # atomic mass unit, used to find number densities
 load=False
-
+Edef=10**np.linspace(-2,7,num=200)
 class isotope(object):
 	def __init__(self,Z,A,m=None):
 		self.Z=Z
@@ -44,16 +44,15 @@ class isotope(object):
 			f=plt.figure()
 			ax=f.subplots()
 			pyplot_objs+=[f,ax]
+		if not MT:
+			MT=[1]
 		if self.notloaded:
 			self.read()
 		for i in MT:
-			try:
-				ax.loglog(self.E[i],self.XSdata[i],label='{},{}:{}'.format(self.Z,self.A,i))
-			except:
-				...
+			ax.loglog(Edef,self.XSfind(Edef,MT=i),label='{},{}:{}'.format(self.Z,self.A,i))
 		if not len(ax.get_xlabel()):
-			ax.xlabel('Energy ($eV$)')
-			ax.ylabel('Microscopic cross section (barn or $b$)')
+			ax.set_xlabel('Energy ($eV$)')
+			ax.set_ylabel('Microscopic cross section (barn or $b$)')
 			ax.legend(loc='best')
 		for kw in kwargs:
 			for obj in pyplot_objs:
@@ -112,7 +111,8 @@ class element:
 		return sum([self.iso[i].XSfind(E,MT=MT) * self.comp[i] for i in self.iso])
 
 class compound:
-	def __init__(self,rho,*e_data,mix=None):
+	def __init__(self,rho,*e_data,mix=None,label=None):
+		self.label=label if label else 'default'
 		importconds=all([len(e_data)==0,rho==None,mix is not None])
 		if not importconds:
 			try:
@@ -158,7 +158,6 @@ class compound:
 					self.isocomp[iso]=c*e.comp[iso]
 		totalcomp=sum(self.isocomp.values())
 		self.isofrac={}
-		print(self.isocomp)
 		for iso in self.isocomp:
 			self.isofrac[iso]=self.isocomp[iso]/totalcomp
 		fracsum=0
@@ -168,7 +167,7 @@ class compound:
 		for iso in self.isocomp:
 			self.isocomp[iso]=self.isofrac[iso]*self.N
 	
-	def totalXS(self,E,MT=1):
+	def mixXS(self,E,MT=1):
 		totXS=0
 		for x,iso in zip(self.isofrac,self.species):
 			try:
@@ -240,25 +239,21 @@ class mixture:
 		avXS=0
 		if MT!=101:
 			for iso in self.species:
-				if MT in self.species[iso].data:
+				if MT in self.species[iso].data.__iter__:
 					avXS+=self.isocomp[iso]*self.species[iso].XSfind(E,MT=MT)/10**28
 		else:
 			for iso in self.species:
 				for MT in range(102,118):
-					if MT in self.species[iso].data:
+					if MT in self.species[iso].data.__iter__:
 						avXS+=self.isocomp[iso]*self.species[iso].XSfind(E,MT=MT)/10**28
 		return avXS
 	
 	def XSgen(self,*MT):
-		lowlim=np.log10(0.01)
-		uplim=np.log10(15e6)
-		exparr=np.linspace(lowlim,uplim,int(self.res))
-		self.Earr=10**exparr
 		for mt in MT:
 			if mt not in self.dataav:
 				continue
-			self.XS[mt]=[self.mixXS(e,MT=mt) for e in self.Earr]
-				
+			self.XS[mt]=self.mixXS#[self.mixXS(e,MT=mt) for e in self.Earr]
+		
 	def XSplot(self,*MT,disp=['MT','label'],**kwargs):
 		pyplot_objs=[]
 		if 'fig' in kwargs:
@@ -277,6 +272,8 @@ class mixture:
 			ax=f.subplots()
 			pyplot_objs+=[f,ax]
 		label=''
+		if not MT:
+			MT=[1]
 		for r in MT:
 			if 'MT' in disp:
 				label+='MT{}; '.format(r)
@@ -284,11 +281,11 @@ class mixture:
 				label+=self.label
 			if r not in self.XS:
 				self.XSgen(r)
-			ax.loglog(self.Earr,self.XS[r],label=label.format(r),lw=0.5)
+			ax.loglog(Edef,self.XS[r](Edef),label=label.format(r),lw=0.5)
 		if not len(ax.get_xlabel()):
 			ax.set_xlabel('Neutron energy ($eV$)')
 			ax.set_ylabel('Macroscopic Cross Section ($1/m$)')
-			ax.set_xlim([min(self.Earr),max(self.Earr)])
+			ax.set_xlim([min(Edef),max(Edef)])
 		ax.legend(loc='best')
 		for kw in kwargs:
 			for obj in pyplot_objs:
@@ -306,3 +303,9 @@ def join(*args):
 		return ''.join([str(arg) for arg in args])
 	else:
 		return args
+
+
+#mend=mendeleev.element(Z)
+#zipped=[(iso.mass_number,iso.abundance) for iso in mend.isotopes]
+#filtered=filter(lambda i:i[-1],zipped)
+#A,comp=zip(*filtered)

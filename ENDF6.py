@@ -8,7 +8,7 @@ https://github.com/DavidWalz/pyENDF6
 Reproduced here to reduce installed dependencies - the code currently works and any errors will be addressed herein
 
 This is used as a fall-back if openMC is not available
-***** \Note *****
+***** End note *****
 
 From https://t2.lanl.gov/nis/endf/intro05.html
 An ENDF-format nuclear data library has an hierarchical structure by tape, material, file, and section, denoted by numerical identifiers.
